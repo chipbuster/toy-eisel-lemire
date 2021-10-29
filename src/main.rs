@@ -1,3 +1,5 @@
+use eisel_lemire::*;
+
 fn main() {
-    println!("Hello, world!");
+    print_stuff();
 }
