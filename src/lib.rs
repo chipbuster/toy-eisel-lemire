@@ -3,14 +3,9 @@ pub fn print_stuff() {
 }
 
 #[cfg(test)]
-pub mod tests{
+pub mod tests {
     #[test]
     pub fn it_works() {
         assert!(true);
-    }
-
-    #[test]
-    pub fn it_fails(){
-        assert!(false);
     }
 }
