@@ -57,16 +57,16 @@ fn gen_lut_entry(e10: i16, two128: &BigUint) -> LUTEntry {
     assert!(z.bits() == 128, "Invalid representation of M128: wrong number of bits for 10^{}: {}!", e10, z.bits());
 
     // Check validity of exponent
-    let approxN = ((Wrapping(217706u64) * Wrapping(e10 as u64)).0 >> 16) + 1087;
-    let approxN = approxN as u32;
-    let biasN = e2 + BIAS;
-    assert!(approxN == biasN.try_into().unwrap(), "Approxmiated exponent {} does not match biased exponent {}!", approxN, biasN);
+    let approx_n = ((Wrapping(217706u64) * Wrapping(e10 as u64)).0 >> 16) + 1087;
+    let approx_n = approx_n as u32;
+    let bias_n = e2 + BIAS;
+    assert!(approx_n == bias_n.try_into().unwrap(), "Approxmiated exponent {} does not match biased exponent {}!", approx_n, bias_n);
 
 
     let digits = z.iter_u64_digits().collect::<Vec<_>>();
     let m128_lo = digits[0];
     let m128_hi = digits[1];
-    let widebiased_e2 = e2 + BIAS;
+    let widebiased_e2 = bias_n;
 
     LUTEntry {
         m128_hi,
@@ -81,10 +81,10 @@ fn format_lookup_table(luts: Vec<LUTEntry>, min_exponent: i16) -> String {
     let mut lines = Vec::new();
 
     // Generate constants
-    lines.push(format!("const EL_POW10_LUT_MIN: i32 = {};", min_exponent));
-    lines.push(format!("const EL_POW10_LUT: [(u64, u64, u16); {}] = [", luts.len()));
+    lines.push(format!("const EL_POW10_LUT_MIN: i16 = {};", min_exponent));
+    lines.push(format!("const EL_POW10_LUT: [(u64, u64); {}] = [", luts.len()));
     for entry in luts {
-        lines.push(format!("({:#x}, {:#x}, {}), // {} ", entry.m128_hi, entry.m128_lo, entry.widebiased_e2, entry.widebiased_e2 - BIAS));
+        lines.push(format!("({:#x}, {:#x}), // pow2 = {} ", entry.m128_hi, entry.m128_lo, entry.widebiased_e2 - BIAS));
     }
     lines.push("];".to_string());
 

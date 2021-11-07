@@ -9,4 +9,7 @@ edition = "2018"
 num-bigint = "0.4.3"
 num-traits = "0.2.14"
 
+[dev-dependencies]
+num-bigint = "0.4.3"
+
 [dependencies]
