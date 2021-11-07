@@ -82,7 +82,7 @@ fn format_lookup_table(luts: Vec<LUTEntry>, min_exponent: i16) -> String {
 
     // Generate constants
     lines.push(format!("const EL_POW10_LUT_MIN: i32 = {};", min_exponent));
-    lines.push(format!("const EL_POW10_LUT: [(u64, u64, i32); {}] = [", luts.len()));
+    lines.push(format!("const EL_POW10_LUT: [(u64, u64, u16); {}] = [", luts.len()));
     for entry in luts {
         lines.push(format!("({:#x}, {:#x}, {}), // {} ", entry.m128_hi, entry.m128_lo, entry.widebiased_e2, entry.widebiased_e2 - BIAS));
     }
