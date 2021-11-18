@@ -11,6 +11,8 @@ algorithm, along with some tests to validate sanity of the lookup table.
 */
 include!(concat!(env!("OUT_DIR"), "/el_lookup_table.rs"));
 
+const BIAS:i16 = 1214;
+
 // All functions in this module return None if the lookup is not present in the
 // target table.
 
@@ -31,14 +33,15 @@ pub fn get_m128_lo(e10: i16) -> Option<u64> {
 }
 
 pub fn get_widebiased_e2(e10: i16) -> Option<u16> {
-    let _index = compute_index(e10)?;
-    let exp = ((Wrapping(217706u64) * Wrapping(e10 as u64)).0 >> 16) + 1087;
-    let exp = exp.try_into().expect("Could not unwrap widebiased e2!");
-    Some(exp)
+    let index = compute_index(e10)?;
+    let e10:i64 = e10.into();
+    let exp= ((217706i64 * e10) >> 16) + 1087;
+    assert!(EL_POW10_LUT[index].2 as i64 == exp, "Failed compare: stored: {}, computed: {}", EL_POW10_LUT[index].2, exp);
+    exp.try_into().ok()
 }
 
 pub fn get_narrowbiased_e2(e10: i16) -> Option<u16> {
-    Some(get_widebiased_e2(e10)? - 64u16)
+    Some(get_widebiased_e2(e10)? + 64u16)
 }
 
 pub fn print_stuff() {
@@ -50,6 +53,31 @@ pub mod tests {
     use super::*;
     use num_bigint::BigUint;
 
+    fn u64_to_big(x: u64) -> BigUint {
+        BigUint::from(x)
+    }
+
+    fn u128_to_big(mhi: u64, mlo: u64) -> BigUint {
+        let mut val: u128 = u128::from(mhi) << 64;
+        val |= u128::from(mlo);
+        BigUint::from(val)
+    }
+
+    /// Multiply base by 2 ** exponent
+    fn mult_pow_2(base: BigUint, exponent: i16) -> BigUint {
+        if exponent < 0 {
+            base >> -exponent
+        } else {
+            base << exponent
+        }
+    }
+
+    fn lut_e10_values() -> Vec<i16> {
+        let num_lut_entries: i16 = EL_POW10_LUT.len().try_into().unwrap();
+        let lut_e10_range = EL_POW10_LUT_MIN..EL_POW10_LUT_MIN + num_lut_entries;
+        lut_e10_range.collect()
+    }
+
     #[test]
     pub fn lut_highbit_set(){
         for entry in EL_POW10_LUT {
@@ -58,14 +86,44 @@ pub mod tests {
     }
 
     #[test]
-    // TODO: Finish this test. Note: we need some way to do testing when e10 is
-    // < 0 as we can't do division with bigints. Maybe do the whole thing
-    // inverted? (Will have to check that math works out correctly)
-    pub fn lut_is_lowerbounded(){
-        let num_lut_entries: i16 = EL_POW10_LUT.len().try_into().unwrap();
-        let lut_e10_range = EL_POW10_LUT_MIN..=EL_POW10_LUT_MIN + num_lut_entries;
-        for e10 in lut_e10_range {
+    pub fn can_get_table_vals(){
+        for e10 in lut_e10_values() {
+            assert!(get_m64(e10).is_some(), "Failed to get M64 for 10**{}", e10);
+            assert!(get_m128_hi(e10).is_some(), "Failed to get M128_hi for 10**{}", e10);
+            assert!(get_m128_lo(e10).is_some(), "Failed to get M128_lo for 10**{}", e10);
+            assert!(get_widebiased_e2(e10).is_some(), "Failed to get widebiased e2 for 10**{}", e10);
+            assert!(get_narrowbiased_e2(e10).is_some(), "Failed to get narrowbiased e2 for 10**{}", e10);
+        }
+    }
 
+    #[test]
+    // TODO: Finish this test. This is a fucking mess when trying to use all-integer
+    // arithmetic (really hard to take powers appropriately, lots of special-casing)
+    // Try writing it with num-rational and BigRatio instead. All of our comparisons
+    // use base2/base10 fixedpoints so this should be quite doable.
+    pub fn m64_bounds_satisfied(){
+        let ten = u64_to_big(10);
+        for e10 in lut_e10_values() {
+            let m64 = get_m64(e10).expect("Missing lut value.");
+            let e2 = get_narrowbiased_e2(e10).unwrap();
+            let e2: i16 = i16::try_from(e2).unwrap() - BIAS;
+            if e10 > 0 {
+                let e10= e10.try_into().expect("Positive i16 couldn't convert to u32?");
+
+                // Setup for lower bound
+                let pow10 = ten.pow(e10);
+                let m64pow2 = mult_pow_2(u64_to_big(m64), e2);
+
+                // This check comes exactly out of the text
+                assert!(pow10 >= m64pow2, "Failed M64 lower-bounds check! 10**{} is not geq {:x} * (2 ** {}) ", e10, m64, e2);
+
+                // Setup for upper bound
+                let one = u64_to_big(1);
+                let m64pow2_plus1 = mult_pow_2(u64_to_big(m64) + one, e2);
+
+                // 
+                assert!(pow10 == m64pow2 || pow10 < m64pow2_plus1, "Failed M64 upper-bounds check! 10**{} is not leq ({:x}+1) * (2 ** {}) ", e10, m64, e2);
+            }
         }
     }
 
