@@ -143,7 +143,7 @@ func do(e int) error {
 		} else {
 			fmt.Printf(">> %4d)", -n)
 		}
-		fmt.Printf("  %d", biasedN)
+		fmt.Printf("  %d", approxN)
 	}
 
 	fmt.Println()
