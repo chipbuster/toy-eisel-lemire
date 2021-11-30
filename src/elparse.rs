@@ -1,5 +1,6 @@
-use std::{convert::TryInto};
+use std::convert::TryFrom;
 
+use crate::lookups::{self, lut_e10_min, lut_e10_max, get_m64, get_narrowbiased_e2};
 
 pub fn parse_float(x: &str) -> Result<f64, std::num::ParseFloatError> {
     parse_float_with_fallback(x)
@@ -33,9 +34,13 @@ fn parse_float_internal(input: &str) -> Option<f64> {
     if man == 0 {
         return Some(0.0);
     }
-    // check exp10 range
+
+    let m64 = get_m64(e10)?;
+    let narrowbiased_e2 = get_narrowbiased_e2(e10)?;
 
     // Perform mantissa normalization
+    let norMan = man << man.leading_zeros();
+    let adje2 = narrowbiased_e2 - i16::try_from(man).ok()?;
 
     unimplemented!()
 }
@@ -54,6 +59,11 @@ fn parse_float_internal(input: &str) -> Option<f64> {
 
   We ignore the floating-point suffix and assume that all literals are to be
   parsed as f64.
+
+  Note that this parsing inherently deals with certain parts of the man/exp range.
+  In order to avoid having to allocate, we terminate the parsing and return None
+  if there are more than 19 digits in the mantissa or if the exponent saturates
+  an i16.
 */
 fn parse_man_exp10(input: &str) -> Option<ManExp10> {
     let mut inp_iter = input.chars();
@@ -180,9 +190,10 @@ pub fn parse_exp10(inp_iter: &mut Chars) -> Option<i16> {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::elparse::parse_parts::{parse_exp10, parse_leading_sign};
+    use crate::elparse::{parse_parts::{parse_exp10, parse_leading_sign}, parse_man_exp10, ManExp10};
 
     use super::{parse_parts::parse_mantissa_base10};
+    use std::collections::HashMap;
     use rand::random;
 
     #[test]
@@ -221,6 +232,37 @@ pub mod tests {
             assert_eq!(testout, o.clone(), "Parsing mantissa of {} should have given {:?} but it gave {:?}", i, o, testout);
         }
     }
-    
 
+    // Test the parsing of entire strings into a ManExp10 form
+    #[test]
+    fn check_man_exp10_form(){
+        let test_data = HashMap::from([
+            // Valid Numbers with exponent
+            ("137.25e+17",Some(ManExp10{neg: false, man:13725, e10: 15})),
+            ("-137.25e17", Some(ManExp10{neg: true, man:13725, e10: 15})),
+            ("-137.25e-17", Some(ManExp10{neg: true, man:13725, e10: -19})),
+            ("24e3", Some(ManExp10{neg: false, man: 24, e10: 3})),
+            ("-24e3", Some(ManExp10{neg: true, man: 24, e10: 3})),
+            ("-24000e-3", Some(ManExp10{neg: true, man: 24000, e10: -3})),
+            // Naughty exponents
+            ("125.25e-16-12", None),
+            ("125e+-112", None),
+            ("-125e-112.7", None),
+            ("+125e999999", None),  // Exponent overflows i16
+            // Valid Numbers without exponent
+            ("2.56", Some(ManExp10{neg: false, man: 256, e10: -2})),
+            ("-2.56", Some(ManExp10{neg: true, man: 256, e10: -2})),
+            ("3.", Some(ManExp10{neg: false, man: 3, e10: 0})),
+            ("+.2777", Some(ManExp10{neg: false, man: 2777, e10: -4})),
+            // Pathologies
+            ("", None),
+            ("--2.5", None),
+            ("-+2.5", None),
+            ("2.5.3", None),
+        ]);
+        for (i, o) in test_data.iter(){
+            let testout = parse_man_exp10(i);
+            assert_eq!(testout, *o.clone(), "Parsing {} should have resulted in {:?} but got {:?}", i, o, testout);
+        }
+    }
 }

@@ -30,7 +30,7 @@ fn gen_lookup_table(min_exponent: i16, max_exponent:i16) -> Vec<LUTEntry> {
 }
 
 fn gen_lut_entry(e10: i16, two128: &BigUint) -> LUTEntry {
-    assert!((-310i16..=310i16).contains(&e10), "E10 is out of range!");
+    assert!((-350i16..=310i16).contains(&e10), "E10 is out of range!");
     let mut z: BigUint = One::one();
     z <<= N;  // Exp is now larger than 10^e10 for sure
 
@@ -79,9 +79,11 @@ fn gen_lut_entry(e10: i16, two128: &BigUint) -> LUTEntry {
 /// Rust source code as a static LUT. Also generates appropriate methods.
 fn format_lookup_table(luts: Vec<LUTEntry>, min_exponent: i16) -> String {
     let mut lines = Vec::new();
+    let numel: i16 = luts.len().try_into().unwrap();
 
     // Generate constants
     lines.push(format!("const EL_POW10_LUT_MIN: i16 = {};", min_exponent));
+    lines.push(format!("const EL_POW10_LUT_MAX: i16 = {};", min_exponent + numel - 1));
     lines.push(format!("const EL_POW10_LUT: [(u64, u64); {}] = [", luts.len()));
     for entry in luts {
         lines.push(format!("({:#x}, {:#x}), // pow2 = {} ", entry.m128_hi, entry.m128_lo, entry.widebiased_e2 - BIAS));
@@ -93,8 +95,8 @@ fn format_lookup_table(luts: Vec<LUTEntry>, min_exponent: i16) -> String {
 
 fn main(){
     println!("cargo:rerun-if-changed=build.rs");
-    let min_exponent = -307;
-    let max_exponent = 288;
+    let min_exponent = -325;
+    let max_exponent = 308;
     let table = gen_lookup_table(min_exponent, max_exponent);
     let lut_str = format_lookup_table(table, min_exponent);
 

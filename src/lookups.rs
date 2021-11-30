@@ -15,6 +15,14 @@ const BIAS: i16 = 1214;
 // All functions in this module return None if the lookup is not present in the
 // target table.
 
+pub const fn lut_e10_min() -> i16 {
+    EL_POW10_LUT_MIN
+}
+
+pub const fn lut_e10_max() -> i16 {
+    EL_POW10_LUT_MAX
+}
+
 pub fn compute_index(e10: i16) -> Option<usize> {
     usize::try_from(e10 - EL_POW10_LUT_MIN).ok()
 }
@@ -31,15 +39,15 @@ pub fn get_m128_lo(e10: i16) -> Option<u64> {
     Some(EL_POW10_LUT[compute_index(e10)?].1)
 }
 
-pub fn get_widebiased_e2(e10: i16) -> Option<u16> {
+pub fn get_widebiased_e2(e10: i16) -> Option<i16> {
     let _index = compute_index(e10)?;
     let e10: i64 = e10.into();
     let exp = ((217706i64 * e10) >> 16) + 1087;
     exp.try_into().ok()
 }
 
-pub fn get_narrowbiased_e2(e10: i16) -> Option<u16> {
-    Some(get_widebiased_e2(e10)? + 64u16)
+pub fn get_narrowbiased_e2(e10: i16) -> Option<i16> {
+    Some(get_widebiased_e2(e10)? + 64)
 }
 
 pub fn print_stuff() {
