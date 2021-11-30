@@ -94,8 +94,11 @@ pub fn parse_leading_sign(inp_iter: &mut Chars) -> Option<bool> {
 }
 
 
-/// Returns a (u64, i16) pair such that u64 * 10 ** i16 = mantissa
+/// Returns a (u64, i16, bool) pair such that u64 * 10 ** i16 = mantissa, and boolean is
+/// true if the string has an explicit exponent present.
 /// Returns None if this input is unparseable, or if the mantissa is longer than 19 digits
+/// If exponent boolean is true, inp_iter is placed at the first character
+/// following the first 'e' or 'E' in the string.
 pub fn parse_mantissa_base10(inp_iter: &mut Chars) -> Option<(u64, i16, bool)> {
     let mut cur_char = inp_iter.next();
 
@@ -179,7 +182,7 @@ pub fn parse_exp10(inp_iter: &mut Chars) -> Option<i16> {
 pub mod tests {
     use crate::elparse::parse_parts::{parse_exp10, parse_leading_sign};
 
-    use super::*;
+    use super::{parse_parts::parse_mantissa_base10};
     use rand::random;
 
     #[test]
@@ -197,7 +200,7 @@ pub mod tests {
         let inputs = vec!["-3","+7","00","90","-",""];
         let outputs = [Some(true), Some(false), Some(false), Some(false), Some(true), None];
         let nexts = [Some('3'),Some('7'),Some('0'),Some('9'), None, None];
-        for ((i, o),n) in inputs.into_iter().zip(outputs.into_iter()).zip(nexts.into_iter()){
+        for ((i, o),n) in inputs.into_iter().zip(outputs.iter()).zip(nexts.iter()){
             let mut itr = i.chars();
             let testout = parse_leading_sign(&mut itr);
             assert_eq!(testout, o.clone(), "Parsing sign of {} should have given {:?} but gave {:?}",i,o,testout);
@@ -208,9 +211,15 @@ pub mod tests {
 
     #[test]
     fn check_parse_mantissa(){
-        unimplemented!()
-        // TODO: Finish writing these tests to test parse_mantissa_base10
-        let inputs = ["123.45e10"];
+        // Note: in Rust, "123" is an int, not a float, but we will allow it to be
+        // a float for the sake of the EL-parsing
+        let inputs = ["123.45e10", "123.", "123e1","+"];
+        let outputs = [Some((12345u64, -2i16, true)), Some((123, 0, false)), Some((123,0,true)), None];
+        for (i, o) in inputs.iter().zip(outputs.iter()){
+            let mut itr = i.chars();
+            let testout = parse_mantissa_base10(&mut itr);
+            assert_eq!(testout, o.clone(), "Parsing mantissa of {} should have given {:?} but it gave {:?}", i, o, testout);
+        }
     }
     
 
