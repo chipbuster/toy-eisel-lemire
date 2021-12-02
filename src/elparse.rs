@@ -1,4 +1,4 @@
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 
 use crate::lookups::{self, lut_e10_min, lut_e10_max, get_m64, get_narrowbiased_e2};
 
@@ -39,9 +39,14 @@ fn parse_float_internal(input: &str) -> Option<f64> {
     let narrowbiased_e2 = get_narrowbiased_e2(e10)?;
 
     // Perform mantissa normalization
-    let norMan = man << man.leading_zeros();
-    let adje2 = narrowbiased_e2 - i16::try_from(man).ok()?;
+    let nor_man = man << man.leading_zeros();
+    let adje2 = narrowbiased_e2 - i16::try_from(man.leading_zeros()).ok()?;
 
+    let w: u128 = u128::from(nor_man) * u128::from(m64);
+    let wbytes = w.to_le_bytes();
+    let (whi_bytes, wlo_bytes) = wbytes.split_at(std::mem::size_of::<u64>());
+    let whi = u64::from_le_bytes(whi_bytes.try_into().unwrap());
+    let wlo = u64::from_le_bytes(wlo_bytes.try_into().unwrap());
     unimplemented!()
 }
 
